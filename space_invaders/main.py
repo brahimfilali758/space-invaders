@@ -5,48 +5,100 @@ from math import sqrt
 from pygame import time
 
 
+pygame.init()
 
 ressources_folder = 'ressources'
 screen__width = 700
 screen__length = 700
 
+# setting up the screen :
 screen = pygame.display.set_mode((screen__width, screen__length))
+
+
+#Colors :
+green = (16, 101, 17)
+red = (243, 0, 22 )
+
 #images :
 player_icon = pygame.image.load(join(ressources_folder, 'player.png')).convert_alpha()
-enemie_icon = pygame.image.load(join(ressources_folder , 'enemy.png')).convert_alpha()
+enemy_icon = pygame.image.load(join(ressources_folder , 'enemy.png')).convert_alpha()
 bullet_icon = pygame.image.load(join(ressources_folder , 'bullet.png')).convert_alpha()
 bullet_icon_rotated = pygame.transform.rotate(bullet_icon , 180)
-background = pygame.image.load(join(ressources_folder, "background.jpg")).convert_alpha()
-background = pygame.transform.scale(background, (screen__width, screen__length)).convert_alpha()
+background_part_2 = pygame.image.load(join(ressources_folder, "background_part_2.png")).convert_alpha()
+background_part_2 = pygame.transform.scale(background_part_2, (screen__width, screen__length)).convert_alpha()
+background_part_1 = pygame.image.load(join(ressources_folder, "background_part_1.png")).convert_alpha()
+background_part_1 = pygame.transform.scale(background_part_1, (screen__width, screen__length)).convert_alpha()
 big_enemie_icon = pygame.image.load(join(ressources_folder , 'big_enemy.png')).convert_alpha()
 big_enemie_icon = pygame.transform.scale(big_enemie_icon , (200 , 200))
+explosion_icon = pygame.image.load(join(ressources_folder , 'explosion.png')).convert_alpha()
+explosion_icon = pygame.transform.scale(explosion_icon , (50 , 50))
+enemy_big_ship_icon = pygame.image.load(join(ressources_folder , 'enemy_big_ship.png')).convert_alpha()
+enemy_big_ship_icon = pygame.transform.scale(enemy_big_ship_icon , (100 , 100))
+start_button = pygame.image.load(join(ressources_folder , 'start_button.png')).convert_alpha()
+start_button = pygame.transform.scale(start_button , (150 , 150))
 
 
 
-class Player(object) :
+#Sounds:
+pygame.mixer.init()
+# pygame.mixer.music.load(join(ressources_folder , 'background.wav'))
+# pygame.mixer.music.play(-1)
+explosion_sound = pygame.mixer.Sound(join(ressources_folder,'explosion.wav'))
+laser_sound = pygame.mixer.Sound(join(ressources_folder , 'laser.wav'))
 
-    def __init__(self ,icon ,x ,y ):
-        self.icon = pygame.image.load(join(ressources_folder , icon))
+#font stuff :
+font = pygame.font.Font('freesansbold.ttf', 32)
+
+
+class Backgound :
+    def __init__(self , speed = 1):
+        self.x1 = 0
+        self.y1 = screen__length * -1
+        self.x2 = 0
+        self.y2 = 0
+        self.speed = speed
+        self.first_icon = background_part_1
+        self.second_icon = background_part_2
+
+    def update(self ) :
+        self.y1 += self.speed
+        self.y2 += self.speed
+        if self.y1 == screen__length :
+            self.y1 = screen__length * -1
+        if self.y2 == screen__length :
+            self.y2  = screen__length * -1
+    def draw(self ) :
+        screen.blit(self.first_icon , (self.x1 , self.y1))
+        screen.blit(self.second_icon , (self.x2 , self.y2))
+
+
+class Character(object) :
+
+    def __init__(self ,icon ,x , y):
+        self.icon = icon
         self.x = x 
         self.y = y
-        self.change_x = 0
-        self.change_y = 0
-        self.hitbox = ()
+        self.hitbox = (self.x , self.y , icon.get_rect().size[0] , icon.get_rect().size[1]) 
         self.health = 100
+        self.bullets = {}   # dictionnary with bullets and their position 
+        self.bullets_to_remove = {}
+    def display(self):
+        screen.blit(self.icon , (self.x , self.y))
+        self.hitbox = (self.x , self.y , self.hitbox[2] , self.hitbox[3])
 
     def display_health_bar(self):
         health_bar_red = (self.x , self.y + self.hitbox[3] , self.hitbox[2] ,10)
         health_bar_green = (self.x , self.y + self.hitbox[3] ,(self.hitbox[2]*self.health) / 100 ,10)
-        pygame.draw.rect( screen, (255 , 0 , 0) , (health_bar_red) )
-        pygame.draw.rect( screen, (0 , 255 , 0) , health_bar_green )
+        pygame.draw.rect( screen, red , (health_bar_red) )
+        pygame.draw.rect( screen, green , health_bar_green )
 
 
 
-    def check_bordinates(self ):
+    def in_fielled(self):
         return (self.x < screen__width - 60 ) and (self.y < screen__length - 60) and (self.x > 0 and self.y > 0)
 
 
-    def isCollision(self , other_player):
+    def check_collision(self , other_player):
 
         def rectCollision(rect1 , rect2):
             P11 = (rect1[0] ,rect1[1])
@@ -56,55 +108,39 @@ class Player(object) :
             if inBox(P11, rect2) or inBox(P12, rect2) or inBox(P13, rect2) or inBox(P14, rect2) :
                 return True
 
-        def inBox(point , rect ) :
+        def inBox(point ,rect ) :
             if point[0] <= rect[0] + rect[2] and point[0] >= rect[0] and point[1] <= rect[1] + rect[3] and point[1] >= rect[1]:
                 return True
             else : return False
         return rectCollision(self.hitbox, other_player.hitbox)
-
         
-                    
+    def been_hit(self , health_lost):
+        self.health -= health_lost
+
+
+    def remove_bullets_outside_fielld(self):
+        for bullet_to_remove in self.bullets_to_remove :
+            self.bullets.pop(bullet_to_remove)
+        self.bullets_to_remove = {}
+
+    def explose(self) :
+        self.icon = explosion_icon
+        # screen.blit(self.icon , (self.x , self.y))
+
+
 
   
 
-class Ship(Player):
-
-    change_x = 0
-    change_y = 0
+class Player(Character):
 
     def __init__(self, x, y) :
-        self.icon = player_icon
-        self.x = x
-        self.y = y
-        self.hitbox = (self.x , self.y , 65 , 60)
-        self.health = 100
+        super().__init__(player_icon, x , y)
+        self.change_x = 0
+        self.change_y = 0
 
-       
-    def beenhit(self):
-        self.health -= 10
-
-    def display_ship(self):
-        screen.blit(self.icon , (self.x , self.y))
-        self.hitbox = (self.x , self.y , 65 , 60)
-
-    def move(self , event):
-        if event.type == pygame.KEYDOWN :
-            if event.key == pygame.K_LEFT :
-                self.change_x = -5
-                self.change_y = 0
-            if event.key == pygame.K_RIGHT :
-                self.change_x = 5
-                self.change_y = 0
-        if event.type == pygame.KEYUP :
-            if event.key == pygame.K_LEFT :
-                self.change_x = 0
-                self.change_y = 0
-            if event.key == pygame.K_RIGHT :
-                self.change_x = 0
-                self.change_y = 0
-
-    def change_coordinates(self):
-        if self.check_bordinates() :
+    def update_position(self):
+        self.right = self.change_x > 0
+        if self.in_fielled() :
             self.x += self.change_x
             self.y += self.change_y
         else : 
@@ -115,217 +151,200 @@ class Ship(Player):
             elif self.x >= screen__width - 60:
                 self.x = screen__width - 61
 
-    def display_health_bar(self):
-        health_bar_red = (20 , 650 , 200 , 15)
-        health_bar_green = (20 , 650 , self.health * 2 , 15)
-        pygame.draw.rect( screen, (255 , 0 , 0) , (health_bar_red) )
-        pygame.draw.rect( screen, (0 , 255 , 0) , health_bar_green )
+    def shoot_bullets(self) :
+        self.bullets[self.x] = Bullet(self.x, self.y , True)
+        for bullet_index in self.bullets :
+            if not self.bullets[bullet_index].in_fielled() :
+                self.bullets_to_remove[bullet_index] = self.bullets[bullet_index]
+        
+    def display_health_bar(self) :
+        health_bar_red = (20 , 650 , 200,10)
+        health_bar_green = (20 , 650 ,(200*self.health) / 100 ,10)
+        pygame.draw.rect( screen, red , (health_bar_red) )
+        pygame.draw.rect( screen, green , health_bar_green )
 
 
 
 
-class Enemy(Player):
 
-    def __init__(self  , icon = None ) :
-        if not icon == None :
-            self.icon = icon
+
+
+class Enemy(Character):
+
+    def __init__(self  , icon = None) :
+        if icon == None :
+            super().__init__(enemy_icon, random.randint(0 ,650), random.randint( 0, 50))
         else :
-            self.icon = enemie_icon
-        self.x = random.randint(0 ,650)
-        self.y = random.randint( 0, 50)
-        self.hitbox = (self.x , self.y , 65 , 60)
-        if random.randint(0, 1) == 0 :
-            self.right = False
-        else : 
-            self.right = True
+            super().__init__(icon, random.randint(0 ,650), random.randint( 0, 50))
 
-    def display_enemy(self ):
-        screen.blit(self.icon , (self.x , self.y))
-        self.hitbox = (self.x , self.y , self.hitbox[2] , self.hitbox[3])
+        self.right = False if random.randint(0, 1) == 0 else True # you can write that in a more elegant way 
 
-    def change_coordinates(self ):
-        if self.right == True :
+
+    def update_position(self ):
+        if self.right :
             self.x += 2
+            self.y += 1
             if self.x >= screen__width - 60:
                 self.right = False
                 self.x += -2
-                self.y += 40
-        if self.right == False :
+        if not self.right :
             self.x += -2
+            self.y += 1
             if self.x <= 5:
                 self.right = True
                 self.x += 2
-                self.y += 40
+
+    def shoot_bullets(self , delai = 0):
+        if delai == 0 :
+            self.bullets[self.x] = Bullet(self.x, self.y, False)
+            for bullet_index in self.bullets :
+                if not self.bullets[bullet_index].in_fielled() :
+                    self.bullets_to_remove[self.x] = self.bullets[self.x]
+
+    
 
 
 class BigEnemy(Enemy):
 
-    def __init__(self , icon = None):
-        if icon == None :
-            super().__init__(self)
-            self.icon = big_enemie_icon
-            self.hitbox = (self.x , self.y , 200 , 200)
-            self.health = 100
-        else : 
-            super().__init__(self , icon = icon)
-            self.icon = icon
-        self.dic = {}
+    def __init__(self, icon):
+        super(BigEnemy, self).__init__(icon = icon)
+        
+    def update_position(self , player_to_chase):
 
-    def change_coordinates(self):
-
-        if self.right == True :
+        if self.right :
             self.x += 2
+            self.y += .1
             if self.x >= screen__width - 60:
-                self.right = False
+                self.right = random.randint(0, 2)
                 self.x += -2
-        if self.right == False :
+        if not self.right :
             self.x += -2
+            self.y += .1
             if self.x <= 5:
-                self.right = True
+                self.right = random.randint(0, 2)
                 self.x += 2
 
-    def shoot_bullet(self):
-        self.dic[self.x] = Bullet(self.x + self.hitbox[2]/2 , self.y + self.hitbox[3] , icon= bullet_icon_rotated)
-        counter = 0
-        for bullet_index in self.dic :
-            counter +=1
-            if counter == 30 :
-                self.dic[bullet_index].shoot_bullet(down = True)
-                counter = 0
 
 
 
 
+class Bullet :
 
-class Bullet(Player) :
-
-    def __init__(self ,x ,y , icon = None):
-        if icon == None :
-            self.icon = bullet_icon
-        else :
-            self.icon = icon
-        self.x = x 
+    def __init__(self ,x ,y , up , icon = None):
+        self.x = x
         self.y = y
+        self.up = up
         self.hitbox = (self.x + 10 , self.y , 10 , 30)
-
-    def shoot_bullet(self , down = False):
-        screen.blit(self.icon ,(round(self.x) , round(self.y)))
-        if down == False :
+        self.icon = bullet_icon if icon == None else icon
+        
+    def update_position(self):
+        screen.blit(self.icon , (self.x , self.y))
+        if self.up :
             self.y -= 5
-        else : 
+            self.hitbox = (self.x + 10 , self.y , 10 , 30)
+        else :
             self.y += 5
-        self.hitbox = (self.x + 10 , self.y , 10 , 30)
-
-
-
-
-
-def main():
-    #initialiase the pygame module : 
-    pygame.init()
-
-    #setting the screen ready :
-    screen = pygame.display.set_mode((screen__width, screen__length))
-
-    #Sounds stuff :
-    pygame.mixer.init()
-    pygame.mixer.music.load(join(ressources_folder , 'background.wav'))
-    pygame.mixer.music.play(-1)
-    explosion_sound = pygame.mixer.Sound(join(ressources_folder,'explosion.wav'))
-    laser_sound = pygame.mixer.Sound(join(ressources_folder , 'laser.wav'))
+            self.hitbox = (self.x + 10 , self.y , 10 , 30)
     
-    #the list of the enemiess :
+    def in_fielled(self):
+        return Character.in_fielled(self)
+
+
+def game_loop():
+
+    start_ticks = pygame.time.get_ticks()
+    clock = pygame.time.Clock()
+
+    score = 0
+
     numbEnemies = 10 
     enemies = [Enemy() for _ in range(numbEnemies)]
     
-    #the player : which is a ship :D
-    player = Ship(300, 575)
+    player = Player(300, 575)
+
+    big_enemy = BigEnemy(icon= enemy_big_ship_icon)
+    big_enemy_time = False 
+    backgound = Backgound(1)
     
-    # this is for eleminating the enemies from enemies list , just because we can't delete an enemie in a list while iterating over that list that gives an error 
-    dic_buullets_player = {}
-    #The score variable :
-    score = 0
-
-    big_enemie_time = False
-
-    #font stuff :
-    font = pygame.font.Font('freesansbold.ttf', 32)
-
-    start_ticks = pygame.time.get_ticks()
-
-    clock = pygame.time.Clock()
-    #the game loop :
-    big_enemie = BigEnemy()    
     running = True
     while running :
+
         #screen stuff :
-        screen.fill((97, 159, 182))
-        screen.blit(background , (0 , 0))
+        backgound.update()
+        backgound.draw()
 
         #calculate the seconds before begining to play :
         secondes = (pygame.time.get_ticks() - start_ticks )/1000
 
         #displaying the player's ship :
-        player.display_ship()
+        player.display()
         player.display_health_bar()
 
         #displaying enemies
-        [enemi.display_enemy() for enemi in enemies]
+        [enemy.display() for enemy in enemies]
 
         #moving enemies around :
-        [enemi.change_coordinates() for enemi in enemies]
+        [enemy.update_position() for enemy in enemies]
 
         #capture events :
         for event in pygame.event.get():
-            player.move(event)
 
             if event.type == pygame.QUIT :
                 running = False
+                quit()
             if event.type == pygame.KEYDOWN :
                 if event.key == pygame.K_SPACE :
-                    dic_buullets_player[player.x] = Bullet(player.x , player.y)
+                    player.shoot_bullets()
                     laser_sound.play()
-        
+            if event.type == pygame.KEYDOWN :
+                if event.key == pygame.K_LEFT :
+                    player.change_x = -5
+                    player.change_y = 0
+                if event.key == pygame.K_RIGHT :
+                    player.change_x = 5
+                    player.change_y = 0
+            if event.type == pygame.KEYUP :
+                if event.key == pygame.K_LEFT :
+                    player.change_x = 0
+                    player.change_y = 0
+                if event.key == pygame.K_RIGHT :
+                    player.change_x = 0
+                    player.change_y = 0
 
-        [dic_buullets_player[bullet_index].shoot_bullet() for bullet_index in dic_buullets_player]        
+        player.update_position()
+        player.remove_bullets_outside_fielld()
+        [player.bullets[bullet_index].update_position() for bullet_index in player.bullets]
 
-        player.change_coordinates()
-
-        dict_bullets2 = {}
-
-        dict_bullet_bigenemi = {}
-
-        
-        for enemi in enemies :
-            for bullet_index in dic_buullets_player :
-                if enemi.isCollision(dic_buullets_player[bullet_index]):
-                    explosion_sound.play()
-                    dict_bullets2[bullet_index] = dic_buullets_player[bullet_index]
+        for enemy in enemies :
+            for bullet_index in player.bullets :
+                if enemy.check_collision(player.bullets[bullet_index]):
+                    # explosion_sound.play()
+                    player.bullets_to_remove[bullet_index] = player.bullets[bullet_index]
+                    enemy.explose()
                     try :
-                        enemies.remove(enemi)
+                        enemies.remove(enemy)
                     except ValueError as e :
                         print(e)
                     score += 1
-                    if not big_enemie_time :
-                        enemies.append(Enemy())
-            if player.isCollision(enemi):
-                print('Game Over')
-                #add a function to go to the game over menu :
-
-        for bullet_index in dic_buullets_player :
-            if not dic_buullets_player[bullet_index].check_bordinates() :
-                dict_bullets2[bullet_index] = dic_buullets_player[bullet_index] 
-        
-        for bullet in dict_bullets2 :
-            dic_buullets_player.pop(bullet)
-
+                    if not big_enemy_time : enemies.append(Enemy())
+            if player.check_collision(enemy):
+                    pass
+                    # print('Game Over')
+                    #add a function to go to the game over menu :
 
         if secondes >= 10 and score >= 10 :
-            big_enemie_time = True
-            big_enemie.display_enemy()
-            big_enemie.display_health_bar()
-            big_enemie.change_coordinates()
-            big_enemie.shoot_bullet()
+            big_enemy_time = True
+            big_enemy.display()
+            if int(secondes) % 3 == 0 :
+                big_enemy.update_position(player)
+            big_enemy.shoot_bullets()
+            big_enemy.remove_bullets_outside_fielld()
+            [big_enemy.bullets[bullet_index].update_position() for bullet_index in big_enemy.bullets]
+
+
+
+
+
 
         #displaying the score : 
         text = font.render(f"Score  :  {score} ", True, (255, 255, 255))
@@ -335,6 +354,44 @@ def main():
         clock.tick(60)
         pygame.display.update()
 
+def intro_loop():
+    start_ticks = pygame.time.get_ticks()
+    clock = pygame.time.Clock()
+
+    backgound = Backgound(2)    
+
+    running_itro = True
+    while running_itro :
+
+        #screen stuff :
+        backgound.update()
+        backgound.draw()
+
+        screen.blit(start_button , (300 , 100))
+
+        secondes = (pygame.time.get_ticks() - start_ticks )/1000
+
+
+        #capture events :
+        for event in pygame.event.get() :
+            if event.type == pygame.QUIT :
+                running_itro = False
+            if event.type == pygame.KEYDOWN :
+                if event.key == pygame.K_RETURN:
+                    game_loop()
+            if event.type == pygame.MOUSEBUTTONDOWN :
+                pos = pygame.mouse.get_pos()
+                if pos[0] >= 300 and pos[0] <= 450 and pos[1] >= 100 and pos[1] <= 250 :
+                    game_loop()
+
+        #FPS 60 :
+        clock.tick(60)
+        pygame.display.update()
+
+
+
+def main():  
+    intro_loop()
 
 
 
