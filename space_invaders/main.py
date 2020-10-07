@@ -1,7 +1,6 @@
 import pygame
 from os.path import join
 import random
-from math import sqrt
 from pygame import time
 
 
