@@ -46,7 +46,10 @@ enemy_big_ship_icon = pygame.transform.scale(enemy_big_ship_icon, (100, 100))
 start_button = pygame.image.load(
     join(ressources_folder, 'start_button.png')).convert_alpha()
 start_button = pygame.transform.scale(start_button, (150, 150))
-
+game_over_icon = pygame.image.load(
+    join(ressources_folder, 'game_over.png')).convert_alpha()
+game_over_icon = pygame.transform.scale(
+    game_over_icon, (200, 200)).convert_alpha()
 
 # Sounds:
 pygame.mixer.init()
@@ -65,13 +68,13 @@ class Animation :
         self.icon = icon if not icon == None else explosion_icon
         self.duration = 2000
         self.timer = Timer()
-        self.character = character
-        self.bullet = bullet
+        self.pos = ((character.x + bullet.x)/2 , (character.y + bullet.y)/2)
+        # self.character = character
+        # self.bullet = bullet
 
     def play_animation(self) :
         if not self.timer.get() >= 200 :
-            pos = ((self.character.x + self.bullet.x)/2 , (self.character.y + self.bullet.y)/2)
-            screen.blit(self.icon , pos)
+            screen.blit(self.icon , self.pos)
 
 
 
@@ -133,12 +136,12 @@ class Character(object):
         self.hitbox = (self.x, self.y, icon.get_rect(
         ).size[0], icon.get_rect().size[1])
         self.health = 100
-        self.bullets = []   # dictionnary with bullets and their position
-        self.bullets_to_remove = []
+        self.bullets = []   
 
     def display(self):
         screen.blit(self.icon, (self.x, self.y))
         self.hitbox = (self.x, self.y, self.hitbox[2], self.hitbox[3])
+        pygame.draw.rect(screen , red , self.hitbox , 1)
 
     def display_health_bar(self):
         health_bar_red = (self.x, self.y + self.hitbox[3], self.hitbox[2], 10)
@@ -173,7 +176,6 @@ class Character(object):
 
     def explose(self):
         self.icon = explosion_icon
-        # screen.blit(self.icon , (self.x , self.y))
 
 
 class Player(Character):
@@ -266,24 +268,29 @@ class BigEnemy(Enemy):
 
 class Bullet:
 
-    def __init__(self, x, y, up, icon=None):
+    def __init__(self, x, y, up, icon = None):
         self.x = x
         self.y = y
         self.up = up
-        self.hitbox = (self.x + 10, self.y, 10, 30)
+        self.hitbox = (self.x , self.y, 30, 30)
         self.icon = bullet_icon if icon == None else icon
 
     def update_position(self):
         screen.blit(self.icon, (self.x, self.y))
+        pygame.draw.rect(screen , green , self.hitbox , 1)
+
         if self.up:
             self.y -= 5
-            self.hitbox = (self.x + 10, self.y, 10, 30)
+            self.hitbox = (self.x , self.y, 30, 30)
         else:
             self.y += 5
-            self.hitbox = (self.x + 10, self.y, 10, 30)
+            self.hitbox = (self.x , self.y, 30, 30)
 
     def in_fielled(self):
         return Character.in_fielled(self)
+
+    def check_collision(self , other_player) :
+        return Character.check_collision(self , other_player)
 
 
 def game_loop():
@@ -309,7 +316,7 @@ def game_loop():
     animations = []
 
     running = True
-    while running:
+    while running :
 
         # screen stuff :
         backgound.update()
@@ -360,11 +367,11 @@ def game_loop():
         for enemy in enemies:
             for bullet in player.bullets:
                 if enemy.check_collision(bullet):
-                    # explosion_sound.play()
+                    explosion_sound.play()
                     animations.append(Animation(character = enemy , bullet = bullet))
-                    player.bullets_to_remove.append(bullet)
                     enemy.explose()
                     try:
+                        player.bullets.remove(bullet)
                         enemies.remove(enemy)
                     except ValueError as e:
                         print(e)
@@ -373,28 +380,41 @@ def game_loop():
                         enemies.append(Enemy())
             if player.check_collision(enemy):
                 if not player.health <= 0 :
-                    player.health -= .3
+                    player.health -= 1
                 else : 
-                    print("game over")
+                    game_over()
         [animation.play_animation() for animation in animations]
 
-        if secondes >= 10 and score >= 10:
+        if secondes >= 10 and score >= 10 :
             big_enemy_time = True
+        if big_enemy_time :
             big_enemy.display()
+            big_enemy.display_health_bar()
             if int(secondes) % 3 == 0 :
                 big_enemy.update_position(player)
             if time_elapsed_since_last_action >= 1000 :
                 big_enemy.shoot_bullets()
                 time_elapsed_since_last_action = 0
-            # big_enemy.remove_bullets_outside_fielld()
             [bullet.update_position() for bullet in big_enemy.bullets]
+            for bullet in big_enemy.bullets :
+                if bullet.check_collision(player) :
+                    player.health -= 1 
+                    big_enemy.bullets.remove(bullet)
+            for bullet in player.bullets :
+                if bullet.check_collision(big_enemy) :
+                    big_enemy.health -= 1
+                    player.bullets.remove(bullet)
+            if big_enemy.health <= 0 :
+                big_enemy_time = False
+                start_ticks = pygame.time.get_ticks()
+
 
         # displaying the score :
         text = font.render(f"Score  :  {score} ", True, (255, 255, 255))
         screen.blit(text, (5, 5))
 
-        # FPS 60 :
         
+        # FPS 60 :
         dt = clock.tick(60)
         time_elapsed_since_last_action += dt
         pygame.display.update()
@@ -426,12 +446,36 @@ def intro_loop():
                     game_loop()
             if event.type == pygame.MOUSEBUTTONDOWN:
                 pos = pygame.mouse.get_pos()
-                if pos[0] >= 300 and pos[0] <= 450 and pos[1] >= 100 and pos[1] <= 250:
+                if pos[0] >= 300 and pos[0] <= 450 and pos[1] >= 100 and pos[1] <= 250 :
                     game_loop()
 
         # FPS 60 :
         clock.tick(60)
         pygame.display.update()
+
+
+def game_over() :
+
+    clock = pygame.time.Clock()
+
+    backgound = Backgound(2)
+
+    running_game_over = True 
+    while running_game_over :
+        backgound.update()
+        backgound.draw()
+        screen.blit(game_over_icon , (260 , 200))
+
+        for event in pygame.event.get() :
+            if event.type == pygame.QUIT :
+                running_game_over = False
+                pygame.quit()
+                quit()
+
+        clock.tick(60)
+        pygame.display.update()
+
+
 
 
 def main():
