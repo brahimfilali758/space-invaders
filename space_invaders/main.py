@@ -25,7 +25,15 @@ enemy_icon = pygame.image.load(
     join(ressources_folder, 'enemy.png')).convert_alpha()
 bullet_icon = pygame.image.load(
     join(ressources_folder, 'bullet.png')).convert_alpha()
-bullet_icon_rotated = pygame.transform.rotate(bullet_icon, 180)
+fire_icon = pygame.image.load(
+    join(ressources_folder, 'fire_effect.png')).convert_alpha()
+fire_icon = pygame.transform.scale(fire_icon, (50, 80))
+
+lazer_icon = pygame.image.load(
+    join(ressources_folder, 'lazer_effect.png')).convert_alpha()
+lazer_icon = pygame.transform.rotate(lazer_icon, 90)
+lazer_icon = pygame.transform.scale(lazer_icon, (50, 80))
+
 background_part_2 = pygame.image.load(
     join(ressources_folder, "background_part_2.png")).convert_alpha()
 background_part_2 = pygame.transform.scale(
@@ -36,7 +44,7 @@ background_part_1 = pygame.transform.scale(
     background_part_1, (screen__width, screen__length)).convert_alpha()
 big_enemie_icon = pygame.image.load(
     join(ressources_folder, 'big_enemy.png')).convert_alpha()
-big_enemie_icon = pygame.transform.scale(big_enemie_icon, (200, 200))
+big_enemie_icon = pygame.transform.scale(big_enemie_icon, (50, 50))
 explosion_icon = pygame.image.load(
     join(ressources_folder, 'explosion.png')).convert_alpha()
 explosion_icon = pygame.transform.scale(explosion_icon, (50, 50))
@@ -53,8 +61,8 @@ game_over_icon = pygame.transform.scale(
 
 # Sounds:
 pygame.mixer.init()
-# pygame.mixer.music.load(join(ressources_folder , 'background.wav'))
-# pygame.mixer.music.play(-1)
+pygame.mixer.music.load(join(ressources_folder , 'background.wav'))
+pygame.mixer.music.play(-1)
 explosion_sound = pygame.mixer.Sound(join(ressources_folder, 'explosion.wav'))
 laser_sound = pygame.mixer.Sound(join(ressources_folder, 'laser.wav'))
 
@@ -64,11 +72,11 @@ font = pygame.font.Font('freesansbold.ttf', 32)
 
 class Animation :
 
-    def __init__(self ,character ,bullet ,icon = None ):
+    def __init__(self ,x ,y ,icon = None ):
         self.icon = icon if not icon == None else explosion_icon
         self.duration = 2000
         self.timer = Timer()
-        self.pos = ((character.x + bullet.x)/2 , (character.y + bullet.y)/2)
+        self.pos = (x,y)
         # self.character = character
         # self.bullet = bullet
 
@@ -107,7 +115,7 @@ class Timer:
 class Backgound:
     def __init__(self, speed = 1 ):
         self.x1 = 0
-        self.y1 = screen__length * -1
+        self.y1 = - screen__length 
         self.x2 = 0
         self.y2 = 0
         self.speed = speed
@@ -118,9 +126,9 @@ class Backgound:
         self.y1 += self.speed
         self.y2 += self.speed
         if self.y1 == screen__length:
-            self.y1 = screen__length * -1
+            self.y1 = - screen__length 
         if self.y2 == screen__length:
-            self.y2 = screen__length * -1
+            self.y2 = - screen__length 
 
     def draw(self):
         screen.blit(self.first_icon, (self.x1, self.y1))
@@ -136,12 +144,12 @@ class Character(object):
         self.hitbox = (self.x, self.y, icon.get_rect(
         ).size[0], icon.get_rect().size[1])
         self.health = 100
-        self.bullets = []   
+        self.bullets = []
 
     def display(self):
         screen.blit(self.icon, (self.x, self.y))
         self.hitbox = (self.x, self.y, self.hitbox[2], self.hitbox[3])
-        pygame.draw.rect(screen , red , self.hitbox , 1)
+        # pygame.draw.rect(screen , red , self.hitbox , 1)
 
     def display_health_bar(self):
         health_bar_red = (self.x, self.y + self.hitbox[3], self.hitbox[2], 10)
@@ -199,7 +207,7 @@ class Player(Character):
                 self.x = screen__width - 61
 
     def shoot_bullets(self):
-        self.bullets.append(Bullet(self.x, self.y, True))
+        self.bullets.append(Bullet(self.x + self.hitbox[2]/2 - 5 , self.y , True))
         for bullet in self.bullets:
             if not bullet.in_fielled():
                 self.bullets.remove(bullet)
@@ -213,21 +221,22 @@ class Player(Character):
 
 class Enemy(Character):
 
-    def __init__(self, icon=None):
+    def __init__(self, icon=None , is_shooting = False):
         if icon == None:
             super().__init__(enemy_icon, random.randint(0, 650), random.randint(0, 50))
         else:
             super().__init__(icon, random.randint(0, 650), random.randint(0, 50))
 
-        # you can write that in a more elegant way
         self.right = False if random.randint(0, 1) == 0 else True
         self.timer = Timer()
+        self.is_shooting = is_shooting
 
-    def update_position(self):
+
+    def update_position(self) :
         if self.right:
             self.x += 2
             self.y += 1
-            if self.x >= screen__width - 60:
+            if self.x >= screen__width - 60 :
                 self.right = False
                 self.x += -2
         if not self.right:
@@ -236,9 +245,12 @@ class Enemy(Character):
             if self.x <= 5:
                 self.right = True
                 self.x += 2
+    def assign_position_on_top(self) :
+        self.x = random.randint(0, 650)
+        self.y = random.randint(0, 50)
 
     def shoot_bullets(self):
-        self.bullets.append(Bullet(self.x, self.y, False , icon = bullet_icon_rotated))
+        self.bullets.append(Bullet(self.x + self.hitbox[2]/2 - 5, self.y + self.hitbox[3]/2 , False , icon = fire_icon, shrink_x= 10 , shrink_y = 10))
         for bullet in self.bullets:
             if not bullet.in_fielled():
                 self.bullets.remove(bullet)
@@ -248,7 +260,7 @@ class Enemy(Character):
 class BigEnemy(Enemy):
 
     def __init__(self, icon):
-        super(BigEnemy, self).__init__(icon=icon)
+        super(BigEnemy, self).__init__(icon = icon)
 
     def update_position(self, player_to_chase):
 
@@ -264,27 +276,34 @@ class BigEnemy(Enemy):
             if self.x <= 5:
                 self.right = random.randint(0, 2)
                 self.x += 2
+    def shoot_bullets(self):
+        self.bullets.append(Bullet(self.x + self.hitbox[2]/2 -10 , self.y + self.hitbox[3]/2 , False , icon = lazer_icon , shrink_x = 0 , shrink_y = 0))
+        for bullet in self.bullets:
+            if not bullet.in_fielled():
+                self.bullets.remove(bullet)
 
 
 class Bullet:
 
-    def __init__(self, x, y, up, icon = None):
+    def __init__(self, x, y, up, icon = None , shrink_x = 5 , shrink_y = 0):
         self.x = x
         self.y = y
         self.up = up
-        self.hitbox = (self.x , self.y, 30, 30)
+        self.shrink_x = shrink_x
+        self.shrink_y = shrink_y
         self.icon = bullet_icon if icon == None else icon
+        self.hitbox = (self.x + self.shrink_x, self.y + self.shrink_y, self.icon.get_rect().size[0] - 2*self.shrink_x , self.icon.get_rect().size[1] - 2*self.shrink_y)
 
     def update_position(self):
         screen.blit(self.icon, (self.x, self.y))
-        pygame.draw.rect(screen , green , self.hitbox , 1)
+        # pygame.draw.rect(screen , green , self.hitbox , 1)
 
         if self.up:
             self.y -= 5
-            self.hitbox = (self.x , self.y, 30, 30)
+            self.hitbox = (self.x + self.shrink_x, self.y + self.shrink_y,  self.icon.get_rect().size[0] - 2*self.shrink_x , self.icon.get_rect().size[1] - 2*self.shrink_y)
         else:
             self.y += 5
-            self.hitbox = (self.x , self.y, 30, 30)
+            self.hitbox = (self.x + self.shrink_x, self.y + self.shrink_y,  self.icon.get_rect().size[0] - 2*self.shrink_x , self.icon.get_rect().size[1] - 2*self.shrink_y)
 
     def in_fielled(self):
         return Character.in_fielled(self)
@@ -299,7 +318,6 @@ def game_loop():
     clock = pygame.time.Clock()
     time_elapsed_since_last_action = 0
     
-
     score = 0
 
     numbEnemies = 10
@@ -315,6 +333,7 @@ def game_loop():
 
     animations = []
 
+    Round = 0
     running = True
     while running :
 
@@ -361,14 +380,13 @@ def game_loop():
                     player.change_y = 0
 
         player.update_position()
-        # player.remove_bullets_outside_fielld()
         [bullet.update_position() for bullet in player.bullets]
 
         for enemy in enemies:
             for bullet in player.bullets:
                 if enemy.check_collision(bullet):
                     explosion_sound.play()
-                    animations.append(Animation(character = enemy , bullet = bullet))
+                    animations.append(Animation((enemy.x + bullet.x)/2 , (enemy.y + bullet.y)/2))
                     enemy.explose()
                     try:
                         player.bullets.remove(bullet)
@@ -376,39 +394,71 @@ def game_loop():
                     except ValueError as e:
                         print(e)
                     score += 1
-                    if not big_enemy_time:
-                        enemies.append(Enemy())
+
             if player.check_collision(enemy):
-                if not player.health <= 0 :
                     player.health -= 1
-                else : 
-                    game_over()
+
+            if not enemy.in_fielled() :
+                enemy.assign_position_on_top()
+
+
         [animation.play_animation() for animation in animations]
 
-        if secondes >= 10 and score >= 10 :
+        if len(enemies) == 0 :
             big_enemy_time = True
         if big_enemy_time :
             big_enemy.display()
             big_enemy.display_health_bar()
             if int(secondes) % 3 == 0 :
                 big_enemy.update_position(player)
-            if time_elapsed_since_last_action >= 1000 :
+            if time_elapsed_since_last_action >= 2000 :
                 big_enemy.shoot_bullets()
                 time_elapsed_since_last_action = 0
             [bullet.update_position() for bullet in big_enemy.bullets]
             for bullet in big_enemy.bullets :
                 if bullet.check_collision(player) :
-                    player.health -= 1 
+                    player.health -= 10 
                     big_enemy.bullets.remove(bullet)
+                for bullet_player in player.bullets :
+                    if bullet_player.check_collision(bullet) :
+                        player.bullets.remove(bullet_player)
             for bullet in player.bullets :
                 if bullet.check_collision(big_enemy) :
-                    big_enemy.health -= 1
+                    big_enemy.health -= 5
                     player.bullets.remove(bullet)
             if big_enemy.health <= 0 :
+                [animations.append(Animation(random.randint(int(big_enemy.x) , int(big_enemy.x + big_enemy.hitbox[2]) ) , random.randint(int(big_enemy.y) ,int( big_enemy.y + big_enemy.hitbox[3]) ))) for _ in range(5) ]
                 big_enemy_time = False
+                big_enemy.health = 100
+                big_enemy.y = random.randint(0, 50)
                 start_ticks = pygame.time.get_ticks()
+                Round += 1        
+                
+                for _ in range(int(numbEnemies * (Round/2))) :
+                    if random.randint(0,1) == 0 :
+                        enemies.append(Enemy(icon = big_enemie_icon , is_shooting=True))               
+                    else : 
+                        enemies.append(Enemy(is_shooting=True))
 
 
+        if random.randint(0 , 100) == 20 :
+            [enemy.shoot_bullets()  for enemy in enemies if enemy.is_shooting]
+        [[bullet.update_position() for bullet in enemy.bullets]  for enemy in enemies]
+
+   
+        # degat entre enemies et le joueur 
+        for enemy in enemies :
+            for bullet_enemy in enemy.bullets :
+                if bullet_enemy.check_collision(player) :
+                    player.health -= 0.5
+                for bullet_player in player.bullets :
+                    if bullet_player.check_collision(bullet_enemy) :
+                        enemy.bullets.remove(bullet_enemy)
+                        player.bullets.remove(bullet_player)
+
+
+        if player.health <= 0 :
+            game_over()
         # displaying the score :
         text = font.render(f"Score  :  {score} ", True, (255, 255, 255))
         screen.blit(text, (5, 5))
@@ -482,5 +532,5 @@ def main():
     intro_loop()
 
 
-if __name__ == '__main__':
+if __name__ == '__main__' :
     main()
